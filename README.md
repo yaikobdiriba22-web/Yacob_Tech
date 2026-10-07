@@ -2,18 +2,26 @@
 
 Technology & Software Solutions.
 
-## Current source
-This repository now contains the current Yacob Tech source synchronized from the AppDeploy application.
-
-## Stack
+## Production stack
 - React 19 + Vite + TypeScript
-- Tailwind CSS
-- Framer Motion
-- Lucide React
-- AppDeploy API/authentication runtime
+- Framer Motion + Lucide React
+- Vercel deployment and serverless API
+- Supabase Auth + PostgreSQL + Row Level Security
+- GitHub source control
 
-## Important
-The current source is AppDeploy-native. Before deploying this exact repository to Vercel, the AppDeploy-specific API and authentication layer should be migrated to Vercel-compatible API routes and a production authentication/database service.
+## Production architecture
+The frontend is deployed from the main branch to Vercel. Public content is served through the Vercel API backed by Supabase. Administrator operations require a Supabase session and the configured ADMIN_EMAIL allowlist.
+
+## Required environment variables
+- VITE_SUPABASE_URL
+- VITE_SUPABASE_PUBLISHABLE_KEY
+- SUPABASE_URL
+- SUPABASE_PUBLISHABLE_KEY
+- SUPABASE_SERVICE_ROLE_KEY (required for secure server-side administrative writes)
+- ADMIN_EMAIL
+- RESEND_API_KEY (optional, for inquiry email notifications)
+
+Never expose SUPABASE_SERVICE_ROLE_KEY to browser/client code.
 
 ## Development
 ```bash
