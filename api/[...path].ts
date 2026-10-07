@@ -18,6 +18,11 @@ function cleanService(x:any){return {number:x.number||'',title:x.title||'',descr
 function cleanBlog(x:any){return {slug:x.slug||String(x.title||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'),title:x.title||'',category:x.category||'',excerpt:x.excerpt||'',content:x.content||'',reading_time:x.reading_time||'5 min',published:x.published!==false,published_at:x.published_at||new Date().toISOString(),active:true,sort_order:x.sort_order||0};}
 function cleanTestimonial(x:any){return {name:x.name||'',role:x.role||'',company:x.company||'',quote:x.quote||'',avatar_url:x.avatar_url||null,sort_order:x.sort_order||0,active:x.active!==false};}
 
+function requestClient(req:any){
+  const token=(req.headers.authorization||'').startsWith('Bearer ')?req.headers.authorization.slice(7):'';
+  return createClient(URL,PUBLIC_KEY,{auth:{persistSession:false,autoRefreshToken:false},global: token ? {headers:{Authorization:`Bearer ${token}`}} : undefined});
+}
+
 async function requireAdmin(req:any){
   const header=req.headers.authorization||'';
   if(!header.startsWith('Bearer ')) return null;
@@ -68,24 +73,25 @@ async function handler(req:any,res:any){
     if(parts[1]==='admin'){
       const user=await requireAdmin(req);
       if(!user) return json(res,401,{error:'Administrator authentication required'});
+      const adminDb=requestClient(req);
       if(req.method==='GET'&&key==='api/admin/metrics'){
         const counts:any={};
-        for(const table of ['inquiries','projects','services','blog','analytics']){const {count,error}=await adminClient.from(table).select('*',{count:'exact',head:true});if(error)throw error;counts[table==='analytics'?'views':table]=count||0;}
+        for(const table of ['inquiries','projects','services','blog','analytics']){const {count,error}=await adminDb.from(table).select('*',{count:'exact',head:true});if(error)throw error;counts[table==='analytics'?'views':table]=count||0;}
         return json(res,200,counts);
       }
-      if(req.method==='GET'&&key==='api/admin/inquiries'){const {data,error}=await adminClient.from('inquiries').select('*').order('created_at',{ascending:false}).limit(100);if(error)throw error;return json(res,200,{items:(data||[]).map(mapInquiry)});}
+      if(req.method==='GET'&&key==='api/admin/inquiries'){const {data,error}=await adminDb.from('inquiries').select('*').order('created_at',{ascending:false}).limit(100);if(error)throw error;return json(res,200,{items:(data||[]).map(mapInquiry)});}
       const resource=parts[2]; const id=parts[3];
       if(['projects','services','blog','testimonials'].includes(resource)){
         const table=resource;
         if(req.method==='POST'){
           const body=resource==='projects'?cleanProject(req.body):resource==='services'?cleanService(req.body):resource==='blog'?cleanBlog(req.body):cleanTestimonial(req.body);
-          const {data,error}=await adminClient.from(table).insert(body).select('id').single();if(error)throw error;return json(res,200,{id:data.id});
+          const {data,error}=await adminDb.from(table).insert(body).select('id').single();if(error)throw error;return json(res,200,{id:data.id});
         }
         if(req.method==='PUT'&&id){
           const body=resource==='projects'?cleanProject(req.body):resource==='services'?cleanService(req.body):resource==='blog'?cleanBlog(req.body):cleanTestimonial(req.body);
-          const {data,error}=await adminClient.from(table).update(body).eq('id',id).select('id').single();if(error)throw error;return json(res,200,{ok:!!data});
+          const {data,error}=await adminDb.from(table).update(body).eq('id',id).select('id').single();if(error)throw error;return json(res,200,{ok:!!data});
         }
-        if(req.method==='DELETE'&&id){const {error}=await adminClient.from(table).delete().eq('id',id);if(error)throw error;return json(res,200,{ok:true});}
+        if(req.method==='DELETE'&&id){const {error}=await adminDb.from(table).delete().eq('id',id);if(error)throw error;return json(res,200,{ok:true});}
       }
     }
     return json(res,404,{error:'Not found'});
